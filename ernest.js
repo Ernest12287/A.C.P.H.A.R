@@ -18,6 +18,9 @@ import { messageHandler, loadCommands, commandMap } from "./handlers/messageHand
 import express from "express";
 import { initScheduler } from './lib/scheduler.js';
 
+// Import the premium utility functions
+import { loadPremiumCacheFromFile, refreshPremiumStatusCache } from "./utils/premiumUtils.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -77,6 +80,9 @@ class WhatsAppBot {
         this.sock = null;
         this.retryCount = 0;
         this.app = express();
+        this.botState = {
+            allowedChannelJidsForReplies: new Set()
+        };    
     }
 
     async start() {
@@ -131,8 +137,12 @@ class WhatsAppBot {
         });
 
         this.setupEventHandlers(saveCreds);
-        messageHandler(this.sock); 
+        messageHandler(this.sock, this); // Pass the bot instance here
         initScheduler(this.sock);
+        
+        // Call premiumUtils functions here
+        await loadPremiumCacheFromFile(); // Load existing cache on startup
+        await refreshPremiumStatusCache(this.sock); // Refresh from API
 
         logger.info("✅ WhatsApp connection initialized. Awaiting 'open' status...");
     }

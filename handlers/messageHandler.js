@@ -1,4 +1,3 @@
-// handlers/messageHandler.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -9,7 +8,6 @@ import messageStorage from '../data/messageStorage.js';
 import specialContactsStorage from '../data/specialContactsStorage.js';
 import { handleSpecialAlert } from './specialAlerts.js';
 
-// New imports for access control and utils
 import { getSenderInfo } from '../utils/userUtils.js';
 import { isPremiumUser } from '../utils/premiumUtils.js';
 import { getMessageText } from '../utils/messageUtils.js';
@@ -40,7 +38,6 @@ export const loadCommands = async () => {
                     commandDescriptions[commandName] = module.default.description;
                 }
             } else if (module.default && module.default.name) {
-                // Handle the new command structure with a default object
                 commands[commandName] = module.default;
                 if (module.default.description) {
                     commandDescriptions[commandName] = module.default.description;
@@ -55,14 +52,13 @@ export const loadCommands = async () => {
     return commands;
 };
 
-export const messageHandler = async (sock) => {
+export const messageHandler = async (sock, botInstance) => {
     if (sock._messageHandlerRegistered) return;
     sock._messageHandlerRegistered = true;
 
     const commandList = await loadCommands();
-    const prefix = process.env.PREFIX || '!';
+    const prefix = process.env.PREFIX || '.';
 
-    // --- Configuration Variables ---
     const autoReadGeneralEnabled = process.env.AUTO_READ_MESSAGES === 'true';
     const botSignatureEnabled = process.env.BOT_SIGNATURE_ENABLED === 'true';
     const botSignatureText = process.env.BOT_SIGNATURE_TEXT || ' | Bot';
@@ -111,7 +107,7 @@ export const messageHandler = async (sock) => {
 
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
-
+        console.log(`DEBUG: A new message event of type '${type}' was received.`);
         for (const msg of messages) {
             const from = msg.key.remoteJid;
             if (!from) continue;
@@ -122,7 +118,6 @@ export const messageHandler = async (sock) => {
             const isPremium = isPremiumUser(senderJid);
             const messageContent = getMessageText(msg);
 
-            // --- Show Typing Indicator Immediately (if enabled and not from bot) ---
             if (autoTypingIndicatorEnabled && !msg.key.fromMe) {
                 await sock.sendPresenceUpdate('composing', from);
                 console.log(`DEBUG: Sent 'composing' presence to ${from}.`);
@@ -131,7 +126,6 @@ export const messageHandler = async (sock) => {
             try {
                 let messageHandledByAutoFeatures = false;
 
-                // --- 1. Handle Status Messages ---
                 if (from === 'status@broadcast') {
                     if (autoViewStatusEnabled) {
                         const statusOwnerJid = msg.key.participant;
@@ -139,7 +133,6 @@ export const messageHandler = async (sock) => {
                             await sock.readMessages([msg.key], 'read');
                             console.log(`DEBUG: Auto-viewed status from ${statusOwnerJid} (ID: ${msg.key.id}).`);
 
-                            // Add the reaction as requested
                             await sock.sendMessage(statusOwnerJid, {
                                 react: {
                                     text: '❤️',
@@ -156,7 +149,6 @@ export const messageHandler = async (sock) => {
                     messageHandledByAutoFeatures = true;
                 }
 
-                // --- 2. Handle Group Moderation (if enabled and applicable) ---
                 if (isGroup && groupSettings[from]) {
                     const groupConfig = groupSettings[from];
                     const senderIsAdmin = await isSenderAdmin(sock, from, senderJid);
@@ -167,7 +159,6 @@ export const messageHandler = async (sock) => {
                             await sock.sendMessage(from, { delete: msg.key });
                             continue;
                         }
-                        // Add more checks here for anti-bot, antimedia, etc.
                         if (groupConfig.antimedia && ['imageMessage', 'videoMessage', 'audioMessage'].includes(messageType)) {
                             await sock.sendMessage(from, { text: "⚠️ Media is not allowed in this group." }, { quoted: msg });
                             await sock.sendMessage(from, { delete: msg.key });
@@ -200,7 +191,6 @@ export const messageHandler = async (sock) => {
                     }
                 }
 
-                // --- 3. Handle Channel Messages ---
                 if (from.endsWith('@newsletter') && !messageHandledByAutoFeatures) {
                     if (autoViewChannelsEnabled) {
                         await sock.readMessages([msg.key], 'read');
@@ -209,22 +199,16 @@ export const messageHandler = async (sock) => {
                     messageHandledByAutoFeatures = true;
                 }
 
-                // --- 4. Handle General Auto-Read ---
                 if (autoReadGeneralEnabled && !msg.key.fromMe && !messageHandledByAutoFeatures) {
                     await sock.readMessages([msg.key], 'read');
                     console.log(`DEBUG: General auto-read message from ${from} (ID: ${msg.key.id}).`);
                     messageHandledByAutoFeatures = true;
                 }
 
-                // --- 5. Special Contact Alert ---
                 if (specialContactAlertsEnabled && !msg.key.fromMe && specialContactsStorage.hasContact(jidNormalizedUser(from))) {
                     await handleSpecialAlert(sock, msg, from, specialContactsStorage.getAllContacts(), botJid);
                 }
 
-                // --- 6. Handle Antidelete ---
-                
-
-                // --- 7. Handle Commands (New logic starts here) ---
                 if (!messageContent || !messageContent.startsWith(prefix)) {
                     if (autoTypingIndicatorEnabled && !msg.key.fromMe) {
                         await sock.sendPresenceUpdate('paused', from);
@@ -246,9 +230,9 @@ export const messageHandler = async (sock) => {
                         commandPrefix: prefix,
                         senderJid,
                         commandMap: commandList,
+                        botState: botInstance.botState,
                     };
 
-                    // Access Control Checks
                     if (command.ownerOnly && !isOwner) {
                         await sock.sendMessage(from, { text: "🔒 *Access Denied*\n\nThis command is restricted to the bot owner." }, { quoted: msg });
                         continue;
@@ -272,8 +256,6 @@ export const messageHandler = async (sock) => {
                         await sock.sendMessage(from, { text: "This command can only be used in a private chat with the bot." }, { quoted: msg });
                         continue;
                     }
-
-                    // Command execution
                     const originalSendMessage = sock.sendMessage;
                     sock.sendMessage = async (jid, content, options) => {
                         let finalContent = { ...content };
@@ -287,7 +269,6 @@ export const messageHandler = async (sock) => {
                         return originalSendMessage.call(sock, jid, finalContent, options);
                     };
 
-                    // Note: The execute function signature should now match (sock, msg, args, logger, commandContext)
                     await command.execute(sock, msg, args, console, commandContext);
                     sock.sendMessage = originalSendMessage;
 
