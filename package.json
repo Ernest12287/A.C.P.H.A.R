@@ -1,0 +1,42 @@
+{
+  "name": "whatsapp-bot",
+  "version": "1.0.9",
+  "description": "WhatsApp Bot with QR Scanner",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+   "start": "node --inspect-brk ernest.js",
+    "dev": "nodemon ernest.js",
+    "bot": "nodemon bot.js",
+    "build": "echo 'No build step required'",
+    "obfuscate": "node scripts/obfuscate.js"
+  },
+  "engines": {
+    "node": ">=20.0.0 <23.0.0"
+  },
+  "dependencies": {
+    "@fal-ai/client": "^1.6.2",
+    "axios": "^1.10.0",
+    "baileys-x": "^1.1.9",
+    "check-disk-space": "^3.4.0",
+    "cheerio": "^1.1.0",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.0.1",
+    "express": "^5.1.0",
+    "form-data": "^4.0.3",
+    "he": "^1.2.0",
+    "jimp": "^0.16.13",
+    "node-cron": "^4.2.0",
+    "node-fetch": "^2.7.0",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.1.1",
+    "sharp": "^0.34.3",
+    "vcard-parser": "^1.0.0",
+    "video-url-link": "^0.1.5",
+    "wa-sticker-formatter": "^4.4.4",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "javascript-obfuscator": "^4.1.1"
+  }
+}

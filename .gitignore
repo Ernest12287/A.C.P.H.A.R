@@ -1,0 +1,30 @@
+# Node modules (always ignore this)
+node_modules/
+
+package-lock.json
+# Environment variables
+comand.txt
+commandshow.txt
+# Logs
+*.log
+logs/
+.env.example
+# OS system files
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/
+
+# Baileys / WhatsApp auth/session files
+session/
+auth_info.json
+auth.json
+credentials.json
+creds.json
+
+# Output files or temp builds
+dist/
+build/
+*.tmp
+*.bak
